@@ -9,7 +9,7 @@ LDLIBS:=$(shell pkg-config --libs $(libs)) $(LDLIBS)
 
 .PHONY : clean distclean install uninstall
 
-prefix?=/usr/bin
+prefix?=/usr/local
 
 bins=\
 		stfs\
@@ -116,8 +116,8 @@ distclean :
 	$(RM) $(deps)
 
 install :
-	install -m 755 -t $(prefix) stfs tag
-	install -m 755 -T mkstfs.sh $(prefix)/mkstfs
+	install -m 755 -t $(prefix)/bin stfs tag
+	install -m 755 -T mkstfs.sh $(prefix)/bin/mkstfs
 
 uninstall :
-	rm -f $(addprefix $(prefix)/,stfs tag mkstfs)
+	rm -f $(addprefix $(prefix)/bin/,stfs tag mkstfs)
