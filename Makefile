@@ -115,7 +115,7 @@ clean :
 distclean :
 	$(RM) $(deps)
 
-install :
+install : $(bins)
 	install -m 755 -t $(prefix)/bin stfs tag
 	install -m 755 -T mkstfs.sh $(prefix)/bin/mkstfs
 
