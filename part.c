@@ -49,5 +49,9 @@ int
 advance_tag (part)
 	struct part * part;
 {
-	return ( advance(part) && partcmp(part, "@") != 0 );
+	return (
+			advance(part) &&
+			partcmp(part,  "@") != 0 &&
+			partcmp(part, "~@") != 0
+	);
 }

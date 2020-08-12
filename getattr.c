@@ -89,6 +89,8 @@ fs_getattr (path, st, file_info)
 
 	struct part part;
 
+	int inclusive;
+
 	if (strcmp(path, "/") == 0)
 	{
 		q = "SELECT COUNT(*) FROM `tags`;";
@@ -97,12 +99,22 @@ fs_getattr (path, st, file_info)
 	{
 		q = "SELECT COUNT(*) FROM `inodes`;";
 	}
-	else if (( t = strstr3(path, "/@/", &p) ))
+	else if (strcmp(path, "/~@") == 0)
 	{
+		q =
+			"SELECT COUNT(*) FROM `inodes`"
+			"WHERE ROWID NOT IN ( SELECT DISTINCT `inode` FROM `mappings` )";
+	}
+	else if (
+			( t = strstr3(path,  "/@/", &p) ) ||
+			( t = strstr3(path, "/~@/", &p) )
+	){
 		if (t > path)
 		{
 			select_table = INODES;
 		}
+
+		inclusive = ( t[1] != '~' );
 
 		errno = 0;/* underflow/overflow, though, really? =P */
 		inode = strtoll(p, &p, 10);
@@ -133,21 +145,43 @@ fs_getattr (path, st, file_info)
 				select_inodes_from_tags(path);
 			}
 
+#define PREPARE_FILTER( b, in, a ) \
+			PREPARE (b, " ROWID " in, a)
+
+#define PREPARE_UNFILTERED \
+			PREPARE ("","","")
+
 			if (page > 0)
 			{
-#define PREPARE( in ) \
+#define PREPARE( b, in, a ) \
 				s = db_prepare(\
 						"SELECT length(`path`), `ctime`,`mtime`, ROWID FROM"\
-						"`inodes` WHERE " in "`master`=? AND `page`=?"\
+						"`inodes` WHERE " in a "`master`=? AND `page`=?"\
 				)
 
 				if (select_table == INODES)
 				{
-					PREPARE ("ROWID IN `select_inodes` AND");
+					if (inclusive)
+					{
+						PREPARE_FILTER (,"IN `select_inodes`","AND");
+					}
+					else
+					{
+						PREPARE_FILTER (,"NOT IN `select_inodes`","AND");
+					}
 				}
 				else
 				{
-					PREPARE ("");
+					if (inclusive)
+					{
+						PREPARE_UNFILTERED;
+					}
+					else
+					{
+						PREPARE_FILTER (,
+								"NOT IN ( SELECT DISTINCT"
+								"`inode` FROM `mappings` )","AND");
+					}
 				}
 
 				sqlite3_bind_int(s, 2, page);
@@ -156,23 +190,41 @@ fs_getattr (path, st, file_info)
 			}
 			else
 			{
-#define PREPARE( in ) \
+#define PREPARE( b, in, a ) \
 				s = db_prepare(\
 						"SELECT length(`path`), `ctime`,`mtime`"\
-						"FROM `inodes` WHERE ROWID=? " in \
+						"FROM `inodes` WHERE ROWID=? " b in \
 				);
 
 				if (select_table == INODES)
 				{
-					PREPARE ("AND ROWID IN `select_inodes`");
+					if (inclusive)
+					{
+						PREPARE_FILTER ("AND","IN `select_inodes`",);
+					}
+					else
+					{
+						PREPARE_FILTER ("AND","NOT IN `select_inodes`",);
+					}
 				}
 				else
 				{
-					PREPARE ("");
+					if (inclusive)
+					{
+						PREPARE_UNFILTERED;
+					}
+					else
+					{
+						PREPARE_FILTER ("AND",
+								"NOT IN ( SELECT DISTINCT `inode` FROM `mappings` )",);
+					}
 				}
 
 #undef PREPARE
 			}
+
+#undef PREPARE_FILTER
+#undef PREPARE_UNFILTERED
 
 			sqlite3_bind_int64(s, 1, inode);
 
@@ -219,6 +271,14 @@ fs_getattr (path, st, file_info)
 	else if (rcmp(path, "/@") == 0)
 	{
 		q = "SELECT COUNT(*) FROM `select_inodes`;";
+
+		select_table = INODES;
+	}
+	else if (rcmp(path, "/~@") == 0)
+	{
+		q =
+			"SELECT COUNT(*) - ("
+			"SELECT COUNT(*) FROM `select_inodes` ) FROM `inodes`;";
 
 		select_table = INODES;
 	}

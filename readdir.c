@@ -45,6 +45,10 @@ fs_readdir (path, fill_buffer, fill, offset, file_info, flags)
 #define easy_fill( name ) \
 	fill(fill_buffer, name, NULL, 0, 0)
 
+#define base_fill() \
+	easy_fill  ("@");/* special dir. of inodes */\
+	easy_fill ("~@");/* special dir. of inodes NOT matching tags */\
+
 	sqlite3_stmt *s;
 
 	int select_inodes = 0;
@@ -57,7 +61,7 @@ fs_readdir (path, fill_buffer, fill, offset, file_info, flags)
 
 	if (strcmp(path, "/") == 0)
 	{
-		easy_fill ("@");/* special dir. of inodes */
+		base_fill();
 
 		s = db_prepare("SELECT `name` FROM `tags`;");
 	}
@@ -67,55 +71,81 @@ fs_readdir (path, fill_buffer, fill, offset, file_info, flags)
 
 		inodes_rows = 1;
 	}
-	else if (rcmp(path, "/@") == 0)
+	else if (strcmp(path, "/~@") == 0)
 	{
-		select_inodes_from_tags(path);
-
 		s = db_prepare(
-				"SELECT ROWID,   `master`, `page` FROM `inodes`"
-				"WHERE  ROWID IN ( SELECT `inode` FROM `select_inodes` );"
+				"SELECT ROWID, `master`, `page` FROM `inodes`"
+				"WHERE  ROWID NOT IN ( SELECT DISTINCT `inode` FROM `mappings` )"
 		);
 
-		select_inodes = 1;
-		inodes_rows   = 1;
+		inodes_rows = 1;
 	}
 	else
 	{
 		p = strrchr(path, '/');
 
-#define SELECT_INHERITANCE( p, c1, c2 ) \
-		s = prepare_with_previous_tag(\
-				"SELECT `name`   FROM `tags`        WHERE ROWID IN ("\
-				"SELECT `" c1 "` FROM `inheritance` WHERE `" c2 "`=("\
-				"SELECT  ROWID   FROM `tags`        WHERE `name`=? )"\
-				");"\
-				, path, p\
-		)
+		if (
+				strcmp(p,  "/@") == 0 ||
+				strcmp(p, "/~@") == 0
+		){
+#define FILTER( in ) \
+			s = db_prepare(\
+					"SELECT ROWID,       `master`, `page` FROM `inodes`"\
+					"WHERE  ROWID " in " ( SELECT `inode` FROM `select_inodes` );"\
+					)
 
-		if (strcmp(p, "/.under") == 0)
-		{
-			SELECT_INHERITANCE (p, "child", "parent");
-		}
-		else if (strcmp(p, "/.above") == 0)
-		{
-			SELECT_INHERITANCE (p, "parent", "child");
+			select_inodes_from_tags(path);
+
+			if (p[1] != '~')
+			{
+				FILTER ("IN");
+			}
+			else
+			{
+				FILTER ("NOT IN");
+			}
+
+			select_inodes = 1;
+			inodes_rows   = 1;
+
+#undef FILTER
 		}
 		else
 		{
-			easy_fill ("@");     /* special dir. of inodes */
-			easy_fill (".under");/* special dir. of children tags */
-			easy_fill (".above");/* special dir. of parent tags */
-			easy_fill ("+");/* add inodes with this tag, basically OR */
-			easy_fill ("-");/* discard inodes with this tag */
-			easy_fill ("~");/* discard with no regard for order of operations */
-			/* exact versions of the discard functions only discard the one tag */
-			easy_fill ("--");
-			easy_fill ("~~");
+#define SELECT_INHERITANCE( p, c1, c2 ) \
+			s = prepare_with_previous_tag(\
+					"SELECT `name`   FROM `tags`        WHERE ROWID IN ("\
+					"SELECT `" c1 "` FROM `inheritance` WHERE `" c2 "`=("\
+					"SELECT  ROWID   FROM `tags`        WHERE `name`=? )"\
+					");"\
+					, path, p\
+					)
 
-			s = db_prepare("SELECT `name` FROM `tags`");
-		}
+			if (strcmp(p, "/.under") == 0)
+			{
+				SELECT_INHERITANCE (p, "child", "parent");
+			}
+			else if (strcmp(p, "/.above") == 0)
+			{
+				SELECT_INHERITANCE (p, "parent", "child");
+			}
+			else
+			{
+				base_fill ();
+				easy_fill (".under");/* special dir. of children tags */
+				easy_fill (".above");/* special dir. of parent tags */
+				easy_fill ("+");/* add inodes with this tag, basically OR */
+				easy_fill ("-");/* discard inodes with this tag */
+				easy_fill ("~");/* discard from the end of the list */
+				/* discard only this tag, no descendants */
+				easy_fill ("--");
+				easy_fill ("~~");
+
+				s = db_prepare("SELECT `name` FROM `tags`");
+			}
 
 #undef SELECT_INHERITANCE
+		}
 	}
 
 	if (inodes_rows)

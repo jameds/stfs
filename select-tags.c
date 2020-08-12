@@ -44,7 +44,7 @@ select_all_tags (path)
 
 	explode(&part, path, "/");
 
-	while (advance_tag(&part) && partcmp(&part, "@") != 0)
+	while (advance_tag(&part))
 	{
 		if (tag_is_valid(part.part))
 		{

@@ -39,8 +39,10 @@ fs_unlink (path)
 	name = strrchr(path, '/') + 1;
 	dot  =  strchr(name, '.');
 
-	if (strncmp(path, "/@/", 3) == 0)
-	{
+	if (
+			strncmp(path,  "/@/", 3) == 0 ||
+			strncmp(path, "/~@/", 4) == 0
+	){
 		if (dot != NULL)
 		{
 			s = select_page(name, dot,

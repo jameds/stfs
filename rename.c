@@ -34,8 +34,10 @@ fs_rename (from, to, mode)
 
 	int n;
 
-	if (( old_name = strstr2(from, "/@/") ) != NULL)
-	{
+	if (
+			( old_name = strstr2(from,  "/@/") ) != NULL ||
+			( old_name = strstr2(from, "/~@/") ) != NULL
+	){
 		inode = strtoll(old_name, &p, 10);
 
 		if (*p == '.')
