@@ -68,7 +68,7 @@ fs_unlink (path)
 		{
 			s = select_page(name, dot,
 					"SELECT ROWID FROM `inodes`"
-					"WHERE ( ROWID=?1 OR `master`=?1 ) AND `page`=?;"
+					"WHERE `master`=? AND `page`=?;"
 			);
 
 			if (sqlite3_step(s) == SQLITE_ROW)

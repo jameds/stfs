@@ -126,7 +126,7 @@ fs_getattr (path, st, file_info)
 			{
 				s = db_prepare(
 						"SELECT length(`path`), `ctime`,`mtime`, ROWID FROM"
-						"`inodes` WHERE ( ROWID=?1 OR `master`=?1 ) AND `page`=?"
+						"`inodes` WHERE `master`=? AND `page`=?"
 				);
 
 				sqlite3_bind_int(s, 2, page);

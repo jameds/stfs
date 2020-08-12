@@ -52,9 +52,6 @@ fs_readdir (path, fill_buffer, fill, offset, file_info, flags)
 	char *p;
 	int   n;
 
-	sqlite3_int64 master;
-	int           page;
-
 	char * name = NULL;
 
 	if (strcmp(path, "/") == 0)
@@ -130,14 +127,14 @@ fs_readdir (path, fill_buffer, fill, offset, file_info, flags)
 	{
 		if (inodes_rows)
 		{
-			page = sqlite3_column_int(s, 2);
-
-			if (page > 0)
+			if (sqlite3_column_type(s, 2) == SQLITE_INTEGER)
 			{
-				master = sqlite3_column_int64(s,
-						( sqlite3_column_type(s, 1) == SQLITE_INTEGER ));
+				sprintf(name,
+						"%s.%s",
+						sqlite3_column_text(s, 1),
+						sqlite3_column_text(s, 2)
+				);
 
-				sprintf(name, "%lld.%d", master, page);
 				easy_fill(name);
 
 				continue;

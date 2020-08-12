@@ -28,7 +28,7 @@ fs_readlink (path, into, size)
 	{
 		s = db_prepare(
 				"SELECT `path` FROM `inodes`"
-				"WHERE ( ROWID=?1 OR `master`=?1 ) AND `page`=?;"
+				"WHERE `master`=? AND `page`=?;"
 		);
 
 		sqlite3_bind_text   (s, 1, &p[1], ( dot - &p[1] ), NULL);
