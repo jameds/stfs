@@ -220,5 +220,7 @@ select_inodes_from_tags (path)
 	sqlite3_finalize(select_tags);
 	sqlite3_finalize(delete_tags);
 
+	delete_select_tags_table();
+
 #undef NEW_FILTER
 }
