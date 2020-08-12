@@ -97,8 +97,13 @@ fs_getattr (path, st, file_info)
 	{
 		q = "SELECT COUNT(*) FROM `inodes`;";
 	}
-	else if (( p = strstr2(path, "/@/") ))
+	else if (( t = strstr3(path, "/@/", &p) ))
 	{
+		if (t > path)
+		{
+			select_table = INODES;
+		}
+
 		errno = 0;/* underflow/overflow, though, really? =P */
 		inode = strtoll(p, &p, 10);
 
@@ -123,21 +128,50 @@ fs_getattr (path, st, file_info)
 
 		if (fstat(db_fd, st) == 0)
 		{
+			if (select_table == INODES)
+			{
+				select_inodes_from_tags(path);
+			}
+
 			if (page > 0)
 			{
-				s = db_prepare(
-						"SELECT length(`path`), `ctime`,`mtime`, ROWID FROM"
-						"`inodes` WHERE `master`=? AND `page`=?"
-				);
+#define PREPARE( in ) \
+				s = db_prepare(\
+						"SELECT length(`path`), `ctime`,`mtime`, ROWID FROM"\
+						"`inodes` WHERE " in "`master`=? AND `page`=?"\
+				)
+
+				if (select_table == INODES)
+				{
+					PREPARE ("ROWID IN `select_inodes` AND");
+				}
+				else
+				{
+					PREPARE ("");
+				}
 
 				sqlite3_bind_int(s, 2, page);
+
+#undef PREPARE
 			}
 			else
 			{
-				s = db_prepare(
-						"SELECT length(`path`), `ctime`,`mtime`"
-						"FROM `inodes` WHERE ROWID=?"
+#define PREPARE( in ) \
+				s = db_prepare(\
+						"SELECT length(`path`), `ctime`,`mtime`"\
+						"FROM `inodes` WHERE ROWID=? " in \
 				);
+
+				if (select_table == INODES)
+				{
+					PREPARE ("AND ROWID IN `select_inodes`");
+				}
+				else
+				{
+					PREPARE ("");
+				}
+
+#undef PREPARE
 			}
 
 			sqlite3_bind_int64(s, 1, inode);
@@ -173,6 +207,11 @@ fs_getattr (path, st, file_info)
 			}
 
 			sqlite3_finalize(s);
+
+			if (select_table == INODES)
+			{
+				delete_select_inodes_table();
+			}
 
 			return -(errno);
 		}
