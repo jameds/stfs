@@ -7,11 +7,10 @@ Read the 'LICENSE' file.
 
 #include "int.h"
 
-static sqlite3_stmt * select_tags;
-static sqlite3_stmt * delete_tags;
-
 static void
-select_inodes (action, part)
+select_inodes (select_tags, delete_tags, action, part)
+	sqlite3_stmt * select_tags;
+	sqlite3_stmt * delete_tags;
 	sqlite3_stmt * action;
 	struct part  * part;
 {
@@ -67,6 +66,9 @@ select_inodes_from_tags (path)
 		DELETE,
 		IGNORE,
 	};
+
+	sqlite3_stmt * select_tags;
+	sqlite3_stmt * delete_tags;
 
 	sqlite3_stmt * filter_in    = NULL;
 	sqlite3_stmt * filter_out   = NULL;
@@ -137,11 +139,11 @@ select_inodes_from_tags (path)
 					filter_in = NEW_FILTER ("NOT IN");
 				}
 
-				select_inodes(filter_in, &part);
+				select_inodes(select_tags, delete_tags, filter_in, &part);
 				break;
 
 			case INSERT:/* straight up add inodes matching this tag */
-				select_inodes(insert, &part);
+				select_inodes(select_tags, delete_tags, insert, &part);
 				break;
 
 			case DELETE:/* remove inodes matching this tag from the selection */
@@ -161,7 +163,7 @@ select_inodes_from_tags (path)
 						filter_out = NEW_FILTER ("IN");
 					}
 
-					select_inodes(filter_out, &part);
+					select_inodes(select_tags, delete_tags, filter_out, &part);
 				}
 				break;
 		}
@@ -202,7 +204,8 @@ select_inodes_from_tags (path)
 						}
 						else
 						{
-							select_inodes(filter_out, &part);
+							select_inodes(select_tags, delete_tags,
+									filter_out, &part);
 						}
 					}
 				}
