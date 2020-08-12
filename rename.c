@@ -176,6 +176,44 @@ fs_rename (from, to, mode)
 	}
 	else
 	{
-		return -EINVAL;
+		if (
+				strstr(to,  "/@/") == NULL &&
+				strstr(to, "/~@/") == NULL
+		){
+			from = strrchr(from, '/') + 1;
+			to   = strrchr(to,   '/') + 1;
+
+			if (tag_is_valid(from) && tag_is_valid(to))
+			{
+				s = db_prepare("UPDATE `tags` SET `name` = ? WHERE `name`=?");
+
+				sqlite3_bind_string(s, 2, from);
+				sqlite3_bind_string(s, 1, to);
+
+				if (db_finish(s) == SQLITE_DONE)
+				{
+					if (sqlite3_changes(db) > 0)
+					{
+						return 0;
+					}
+					else
+					{
+						return -ENOENT;
+					}
+				}
+				else
+				{
+					return -EEXIST;
+				}
+			}
+			else
+			{
+				return -EINVAL;
+			}
+		}
+		else
+		{
+			return -EINVAL;
+		}
 	}
 }
