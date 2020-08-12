@@ -87,13 +87,6 @@ main (argc, argv)
 
 	sqlite3_stmt * s;
 
-	struct
-	{
-		char          * target;
-		sqlite3_int64   rowid;
-	} * nodv;
-	int nodc;
-
 	int i;
 
 	sqlite3_int64 master;
@@ -138,9 +131,6 @@ main (argc, argv)
 
 			sqlite3_bind_int(insert, 2, time(NULL));
 		}
-
-		nodv = malloc(ac * sizeof *nodv);
-		nodc = 0;
 
 		do
 		{
@@ -288,16 +278,20 @@ main (argc, argv)
 						{
 							if (resetting)
 							{
-								nodv[nodc].rowid  = sqlite3_column_int64(select, 0);
-								nodv[nodc].target = name;
+								printf(
+										"%s -> %s\n",
+										name,
+										sqlite3_column_text(select, 0)
+								);
 							}
 							else
 							{
-								nodv[nodc].rowid  = master;
-								nodv[nodc].target = *av;
+								printf(
+										"%s: %lld\n",
+										*av,
+										master
+								);
 							}
-
-							nodc++;
 						}
 						else
 						{
@@ -326,9 +320,11 @@ main (argc, argv)
 
 					if (sqlite3_step(insert) == SQLITE_DONE)
 					{
-						nodv[nodc].rowid  = sqlite3_last_insert_rowid(db);
-						nodv[nodc].target = name;
-						nodc++;
+						printf(
+								"%s: %lld\n",
+								name,
+								sqlite3_last_insert_rowid(db)
+						);
 					}
 					else
 					{
@@ -351,23 +347,6 @@ main (argc, argv)
 			}
 		}
 		while (shift()) ;
-
-		if (nodc > 0)
-		{
-			if (status == 2)
-			{
-				putc('\n', stderr);
-			}
-
-			for (i = 0; i < nodc; ++i)
-			{
-				printf(
-						"%s -> %lld\n",
-						nodv[i].target,
-						nodv[i].rowid
-				);
-			}
-		}
 
 		sqlite3_finalize(insert);
 		sqlite3_finalize(select);
