@@ -7,6 +7,11 @@ libs=\
 CFLAGS:=$(shell pkg-config --cflags $(libs)) -DFUSE_USE_VERSION=31 $(CFLAGS)
 LDLIBS:=$(shell pkg-config --libs $(libs)) $(LDLIBS)
 
+ifdef debug
+CFLAGS+=-g
+LDFLAGS+=-Wl,-rpath,/usr/local/lib
+endif
+
 .PHONY : clean distclean install uninstall
 
 prefix?=/usr/local
