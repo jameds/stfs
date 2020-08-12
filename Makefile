@@ -7,7 +7,7 @@ libs=\
 CFLAGS:=$(shell pkg-config --cflags $(libs)) -DFUSE_USE_VERSION=31 $(CFLAGS)
 LDLIBS:=$(shell pkg-config --libs $(libs)) $(LDLIBS)
 
-.PHONY : clean distclean
+.PHONY : clean distclean install uninstall
 
 bins=\
 		stfs\
@@ -112,3 +112,10 @@ clean :
 
 distclean :
 	$(RM) $(deps)
+
+install :
+	install -m 755 -t /usr/bin stfs tag
+	install -m 755 -T mkstfs.sh /usr/bin/mkstfs
+
+uninstall :
+	rm -f /usr/bin/stfs /usr/bin/tag /usr/bin/mkstfs
