@@ -1,5 +1,6 @@
-/* fuse operation: readdir */
-
+/*
+fuse operation: readdir
+*/
 /*
 Copyright 2020 James R.
 All rights reserved.

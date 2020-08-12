@@ -1,5 +1,6 @@
-/* fuse operation: mkdir */
-
+/*
+fuse operation: mkdir
+*/
 /*
 Copyright 2020 James R.
 All rights reserved.

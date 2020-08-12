@@ -1,5 +1,6 @@
-/* fuse operation: readlink */
-
+/*
+fuse operation: readlink
+*/
 /*
 Copyright 2020 James R.
 All rights reserved.

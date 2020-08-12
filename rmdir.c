@@ -1,5 +1,6 @@
-/* fuse operation: rmdir */
-
+/*
+fuse operation: rmdir
+*/
 /*
 Copyright 2020 James R.
 All rights reserved.

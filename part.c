@@ -1,11 +1,13 @@
 /*
+little parser abstraction for cstrtok :)
+*/
+/*
 Copyright 2020 James R.
 All rights reserved.
 
 Read the 'LICENSE' file.
 */
 
-/* little parser abstraction for cstrtok :) */
 #include <string.h>
 #include "int.h"
 

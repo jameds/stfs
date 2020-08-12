@@ -1,5 +1,6 @@
-/* tag [ -d database] target [target2...] */
-
+/*
+tag [ -d database] target [target2...]
+*/
 /*
 Copyright 2020 James R.
 All rights reserved.

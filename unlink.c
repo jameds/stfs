@@ -1,5 +1,6 @@
-/* fuse operation: unlink */
-
+/*
+fuse operation: unlink
+*/
 /*
 Copyright 2020 James R.
 All rights reserved.

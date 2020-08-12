@@ -1,5 +1,6 @@
-/* fuse operation: rename */
-
+/*
+fuse operation: rename
+*/
 /*
 Copyright 2020 James R.
 All rights reserved.

@@ -1,5 +1,6 @@
-/* fuse operation: getattr */
-
+/*
+fuse operation: getattr
+*/
 /*
 Copyright 2020 James R.
 All rights reserved.

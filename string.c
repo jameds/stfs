@@ -1,11 +1,13 @@
 /*
+misc. string functions
+*/
+/*
 Copyright 2020 James R.
 All rights reserved.
 
 Read the 'LICENSE' file.
 */
 
-/* misc. string functions */
 #include <string.h>
 
 char *
