@@ -1,0 +1,18 @@
+stfs
+Symbolic Tagging File System
+==========================
+FUSE file system that uses tags instead of file names. Symlink based.
+
+
+Based on what?
+
+
+mkstfs [database]
+===============
+Create a new stfs database at the path. If the path is omitted, create it in
+the current directory, at '.stfs'.
+
+stfs [database] mount-point
+===========================
+Mount a stfs database at some directory. If the database path is omitted, look
+for it in the current directory, at '.stfs'.
