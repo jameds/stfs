@@ -51,7 +51,14 @@ fs_readdir (path, fill_buffer, fill, offset, file_info, flags)
 
 	sqlite3_stmt *s;
 
-	int select_inodes = 0;
+	enum
+	{
+		NONE,
+		TAGS,
+		INODES,
+	}
+	select_table = NONE;
+
 	int inodes_rows   = 0;
 
 	char *p;
@@ -105,7 +112,7 @@ fs_readdir (path, fill_buffer, fill, offset, file_info, flags)
 				FILTER ("NOT IN");
 			}
 
-			select_inodes = 1;
+			select_table  = INODES;
 			inodes_rows   = 1;
 
 #undef FILTER
@@ -141,7 +148,23 @@ fs_readdir (path, fill_buffer, fill, offset, file_info, flags)
 				easy_fill ("--");
 				easy_fill ("~~");
 
-				s = db_prepare("SELECT `name` FROM `tags`");
+				switch (p[1])
+				{
+					case '-':
+					case '+':
+					case '~':
+						s = db_prepare("SELECT `name` FROM `tags`");
+						break;
+
+					default:
+						select_all_tags(path);
+						select_table = TAGS;
+
+						s = db_prepare(
+								"SELECT `name` FROM `tags`"
+								"WHERE ROWID NOT IN `select_tags`"
+						);
+				}
 			}
 
 #undef SELECT_INHERITANCE
@@ -179,7 +202,11 @@ fs_readdir (path, fill_buffer, fill, offset, file_info, flags)
 
 	sqlite3_finalize(s);
 
-	if (select_inodes)
+	if (select_table == TAGS)
+	{
+		delete_select_tags_table();
+	}
+	else if (select_table == INODES)
 	{
 		delete_select_tags_table();
 	}

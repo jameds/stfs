@@ -7,6 +7,14 @@ Read the 'LICENSE' file.
 
 #include "int.h"
 #include <ctype.h>
+#include <string.h>
+
+#define RECURSIVE_SQL \
+	"WITH RECURSIVE `family` (`tag`) AS ("\
+	"SELECT ROWID FROM `tags` WHERE `name`=?"\
+	"UNION SELECT `child` FROM `inheritance`, `family`"\
+	"WHERE `parent`=`family`.`tag`"\
+	")"
 
 void
 create_select_tags_table ()
@@ -21,12 +29,8 @@ sqlite3_stmt *
 prepare_select_tags ()
 {
 	return db_prepare(
-			"INSERT INTO `select_tags`"
-			"WITH RECURSIVE `select_tags` (`tag`) AS ("
-			"SELECT ROWID FROM `tags` WHERE `name`=?"
-			"UNION SELECT `child` FROM `inheritance`, `select_tags`"
-			"WHERE `parent`=`select_tags`.`tag`"
-			") SELECT `tag` FROM `select_tags`;"
+			RECURSIVE_SQL
+			"INSERT INTO `select_tags` SELECT `tag` FROM `family`"
 	);
 }
 
@@ -36,11 +40,30 @@ select_all_tags (path)
 {
 	struct part part;
 
+	sqlite3_stmt * insert;
+	sqlite3_stmt * delete     = NULL;
+	sqlite3_stmt * delete_one = NULL;
+
 	sqlite3_stmt * s;
 
 	create_select_tags_table();
 
-	s = prepare_select_tags();
+	insert = prepare_select_tags();
+
+	if (strstr(path, "/-") != NULL)
+	{
+		delete = db_prepare(
+				RECURSIVE_SQL
+				"DELETE FROM `select_tags` WHERE `tag` IN `family`"
+		);
+
+		delete_one = db_prepare(
+				"DELETE FROM `select_tags`"
+				"WHERE `tag`=( SELECT ROWID FROM `tags` WHERE `name`=? )"
+		);
+	}
+
+	s = insert;
 
 	explode(&part, path, "/");
 
@@ -51,9 +74,25 @@ select_all_tags (path)
 			sqlite3_bind_text(s, 1, part.part, part.length, NULL);
 			db_advance(s);
 		}
+		else if (part.part[0] == '-')
+		{
+			if (part.part[1] != '-')
+			{
+				s = delete;
+			}
+			else
+			{
+				s = delete_one;
+			}
+			continue;
+		}
+
+		s = insert;
 	}
 
-	sqlite3_finalize(s);
+	sqlite3_finalize(insert);
+	sqlite3_finalize(delete);
+	sqlite3_finalize(delete_one);
 }
 
 int
