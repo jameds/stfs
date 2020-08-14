@@ -98,12 +98,12 @@ fs_unlink (path)
 		}
 		else
 		{
-			sqlite3_bind_string(s, 1, &name[1]);
+			sqlite3_bind_string(s, 1, name);
 		}
 
 		explode(&part, path, "/");
 
-		while (advance(&part) && part.part < name)
+		while (advance_tag(&part))
 		{
 			if (tag_is_valid(part.part))
 			{
