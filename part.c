@@ -51,7 +51,8 @@ advance_tag (part)
 {
 	return (
 			advance(part) &&
-			partcmp(part,  "@") != 0 &&
-			partcmp(part, "~@") != 0
+			partcmp(part,  "@")   != 0 &&
+			partcmp(part, "~@")   != 0 &&
+			partcmp(part, ".for") != 0
 	);
 }

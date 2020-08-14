@@ -46,8 +46,9 @@ fs_readdir (path, fill_buffer, fill, offset, file_info, flags)
 	fill(fill_buffer, name, NULL, 0, 0)
 
 #define base_fill() \
-	easy_fill  ("@");/* special dir. of inodes */\
-	easy_fill ("~@");/* special dir. of inodes NOT matching tags */\
+	easy_fill  ("@");  /* special dir. of inodes */\
+	easy_fill ("~@");  /* special dir. of inodes NOT matching tags */\
+	easy_fill (".for");/* special dir. of inodes' tags */
 
 	sqlite3_stmt *s;
 
@@ -72,8 +73,10 @@ fs_readdir (path, fill_buffer, fill, offset, file_info, flags)
 
 		s = db_prepare("SELECT `name` FROM `tags`;");
 	}
-	else if (strcmp(path, "/@") == 0)
-	{
+	else if (
+			strcmp(path, "/@")    == 0 ||
+			strcmp(path, "/.for") == 0
+	){
 		s = db_prepare("SELECT ROWID, `master`, `page` FROM `inodes`;");
 
 		inodes_rows = 1;
@@ -87,13 +90,28 @@ fs_readdir (path, fill_buffer, fill, offset, file_info, flags)
 
 		inodes_rows = 1;
 	}
+	else if (( p = strstr2(path, "/.for/") ))
+	{
+		if (strchr(&p[1], '/') != NULL)
+		{
+			return 0;
+		}
+
+		s = db_prepare(
+				"SELECT `name` FROM `tags`     WHERE  ROWID IN ("
+				"SELECT `tag`  FROM `mappings` WHERE `inode`=? )"
+		);
+
+		sqlite3_bind_text(s, 1, p, strcspn(p, "/"), NULL);
+	}
 	else
 	{
 		p = strrchr(path, '/');
 
 		if (
-				strcmp(p,  "/@") == 0 ||
-				strcmp(p, "/~@") == 0
+				strcmp(p,  "/@")   == 0 ||
+				strcmp(p, "/~@")   == 0 ||
+				strcmp(p, "/.for") == 0
 		){
 #define FILTER( in ) \
 			s = db_prepare(\

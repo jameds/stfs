@@ -43,7 +43,8 @@ fs_rmdir (path)
 
 			if (
 					strncmp(&p[-n], "/.under", n) == 0 ||
-					strncmp(&p[-n], "/.above", n) == 0
+					strncmp(&p[-n], "/.above", n) == 0 ||
+					strncmp(&p[-n], "/.for",   n) == 0
 			){
 				s = db_prepare(
 						"DELETE FROM `inheritance`"

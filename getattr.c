@@ -17,21 +17,31 @@ Read the 'LICENSE' file.
 	"SELECT COUNT(*) FROM `inheritance` WHERE `" side "`=(" \
 	"SELECT ROWID    FROM `tags`        WHERE `name`=?)"
 
+#define   BASIC_COLUMNS_SQL "`ctime`,`mtime`"
+#define SYMLINK_COLUMNS_SQL "length(`path`)," BASIC_COLUMNS_SQL
+
+static int
+to_dir (st)
+	struct stat * st;
+{
+	/* fuck this is ugly!!! */
+	if (( st->st_mode & 0700 )) st->st_mode |= 0700;
+	if (( st->st_mode & 0070 )) st->st_mode |= 0070;
+	if (( st->st_mode & 0007 )) st->st_mode |= 0007;
+
+	st->st_ino   = 0;
+	st->st_mode  = ( st->st_mode & ~(S_IFMT) ) | S_IFDIR;
+
+	return 0;
+}
+
 static int
 stat_db (st)
 	struct stat * st;
 {
 	if (fstat(db_fd, st) == 0)
 	{
-		/* fuck this is ugly!!! */
-		if (( st->st_mode & 0700 )) st->st_mode |= 0700;
-		if (( st->st_mode & 0070 )) st->st_mode |= 0070;
-		if (( st->st_mode & 0007 )) st->st_mode |= 0007;
-
-		st->st_ino   = 0;
-		st->st_mode  = ( st->st_mode & ~(S_IFMT) ) | S_IFDIR;
-
-		return 0;
+		return to_dir(st);
 	}
 	else
 	{
@@ -90,13 +100,16 @@ fs_getattr (path, st, file_info)
 	struct part part;
 
 	int inclusive;
+	int for_mappings;
 
 	if (strcmp(path, "/") == 0)
 	{
 		q = "SELECT COUNT(*) FROM `tags`;";
 	}
-	else if (strcmp(path, "/@") == 0)
-	{
+	else if (
+			strcmp(path, "/@")    == 0 ||
+			strcmp(path, "/.for") == 0
+	){
 		q = "SELECT COUNT(*) FROM `inodes`;";
 	}
 	else if (strcmp(path, "/~@") == 0)
@@ -106,19 +119,37 @@ fs_getattr (path, st, file_info)
 			"WHERE ROWID NOT IN ( SELECT DISTINCT `inode` FROM `mappings` )";
 	}
 	else if (
-			( t = strstr3(path,  "/@/", &p) ) ||
-			( t = strstr3(path, "/~@/", &p) )
+			( t = strstr3(path,  "/@/",   &p) ) ||
+			( t = strstr3(path, "/~@/",   &p) ) ||
+			( t = strstr3(path, "/.for/", &p) )
 	){
 		if (t > path)
 		{
 			select_table = INODES;
 		}
 
-		inclusive = ( t[1] != '~' );
+		inclusive    = ( t[1] != '~' );
+		for_mappings = ( t[1] == '.' );
 
 		if (get_inode(&inode, &page, &p) != 0)
 		{
 			return -EINVAL;
+		}
+
+		/* previous getattr confirms this inode exists here */
+		if (for_mappings && *p == '/')
+		{
+			p++;
+
+			/* no directory exists beyond the inode's tags */
+			if (strchr(p, '/') == NULL)
+			{
+				select_table = NONE;
+			}
+			else
+			{
+				return -ENOENT;
+			}
 		}
 
 		if (fstat(db_fd, st) == 0)
@@ -138,25 +169,54 @@ fs_getattr (path, st, file_info)
 			{
 #define PREPARE( b, in, a ) \
 				s = db_prepare(\
-						"SELECT length(`path`), `ctime`,`mtime`, ROWID FROM"\
+						"SELECT " COLUMNS ", ROWID FROM"\
 						"`inodes` WHERE " in a "`master`=? AND `page`=?"\
 				)
 
 				if (select_table == INODES)
 				{
-					if (inclusive)
+					if (for_mappings)
 					{
+#define COLUMNS BASIC_COLUMNS_SQL
+						PREPARE_FILTER (,"IN `select_inodes`","AND");
+#undef  COLUMNS
+					}
+					else if (inclusive)
+					{
+#define COLUMNS SYMLINK_COLUMNS_SQL
 						PREPARE_FILTER (,"IN `select_inodes`","AND");
 					}
 					else
 					{
 						PREPARE_FILTER (,"NOT IN `select_inodes`","AND");
+#undef  COLUMNS
 					}
 				}
 				else
 				{
-					if (inclusive)
+					if (for_mappings)
 					{
+						if (*p)
+						{
+							s = db_prepare(
+									"SELECT `time` FROM `tags`"
+									"WHERE `name`=?3 AND ROWID IN ("
+									"SELECT `tag` FROM `mappings`"
+									"WHERE `inode`=( SELECT ROWID FROM `inodes`"
+									"WHERE `master`=?1 AND `page`=?2 )"
+									")"
+							);
+						}
+						else
+						{
+#define COLUMNS BASIC_COLUMNS_SQL
+							PREPARE_UNFILTERED;
+#undef  COLUMNS
+						}
+					}
+					else if (inclusive)
+					{
+#define COLUMNS SYMLINK_COLUMNS_SQL
 						PREPARE_UNFILTERED;
 					}
 					else
@@ -164,6 +224,7 @@ fs_getattr (path, st, file_info)
 						PREPARE_FILTER (,
 								"NOT IN ( SELECT DISTINCT"
 								"`inode` FROM `mappings` )","AND");
+#undef  COLUMNS
 					}
 				}
 
@@ -175,31 +236,60 @@ fs_getattr (path, st, file_info)
 			{
 #define PREPARE( b, in, a ) \
 				s = db_prepare(\
-						"SELECT length(`path`), `ctime`,`mtime`"\
+						"SELECT " COLUMNS\
 						"FROM `inodes` WHERE ROWID=? " b in \
 				);
 
 				if (select_table == INODES)
 				{
-					if (inclusive)
+					if (for_mappings)
 					{
+#define COLUMNS BASIC_COLUMNS_SQL
+						PREPARE_FILTER ("AND","IN `select_inodes`",);
+#undef  COLUMNS
+					}
+					else if (inclusive)
+					{
+#define COLUMNS SYMLINK_COLUMNS_SQL
 						PREPARE_FILTER ("AND","IN `select_inodes`",);
 					}
 					else
 					{
 						PREPARE_FILTER ("AND","NOT IN `select_inodes`",);
+#undef  COLUMNS
 					}
 				}
 				else
 				{
-					if (inclusive)
+					if (for_mappings)
 					{
+						if (*p)
+						{
+							s = db_prepare(
+									"SELECT `time` FROM `tags`"
+									"WHERE `name`=?3 AND ROWID IN ("
+									"SELECT `tag` FROM `mappings`"
+									"WHERE `inode`=?1"
+									")"
+							);
+						}
+						else
+						{
+#define COLUMNS BASIC_COLUMNS_SQL
+							PREPARE_UNFILTERED;
+#undef  COLUMNS
+						}
+					}
+					else if (inclusive)
+					{
+#define COLUMNS SYMLINK_COLUMNS_SQL
 						PREPARE_UNFILTERED;
 					}
 					else
 					{
 						PREPARE_FILTER ("AND",
 								"NOT IN ( SELECT DISTINCT `inode` FROM `mappings` )",);
+#undef  COLUMNS
 					}
 				}
 
@@ -211,28 +301,53 @@ fs_getattr (path, st, file_info)
 
 			sqlite3_bind_int64(s, 1, inode);
 
+			if (*p)
+			{
+				sqlite3_bind_string(s, 3, p);
+			}
+
 			if (sqlite3_step(s) == SQLITE_ROW)
 			{
-				if (page > 0)
+				if (for_mappings)
 				{
-					inode = sqlite3_column_int64(s, 3);
+					to_dir(st);
+				}
+				else
+				{
+					if (page > 0)
+					{
+						inode = sqlite3_column_int64(s, 3);
+					}
+
+					st->st_ino   = inode;
+					st->st_mode  = S_IFLNK|0777;
+
+					st->st_size  = sqlite3_column_int(s, 0);
 				}
 
-				st->st_ino   = inode;
-				st->st_mode  = S_IFLNK|0777;
-				st->st_size  = sqlite3_column_int(s, 0);
+				st->st_ctim.tv_sec = sqlite3_column_int(s, 1 - for_mappings);
 
-				st->st_ctim.tv_sec = sqlite3_column_int(s, 1);
-				st->st_mtim.tv_sec = sqlite3_column_int(s, 2);
+				if (*p == '\0')
+				{
+					st->st_mtim.tv_sec = sqlite3_column_int(s, 2 - for_mappings);
+				}
+				else
+				{
+					st->st_mtim.tv_sec = st->st_ctim.tv_sec;
+				}
 
-				sqlite3_finalize(s);
+				if (*p == '\0')
+				{
+					sqlite3_finalize(s);
 
-				s = db_prepare("SELECT COUNT(*) FROM `mappings` WHERE `inode`=?;");
+					s = db_prepare(
+							"SELECT COUNT(*) FROM `mappings` WHERE `inode`=?;");
 
-				sqlite3_bind_int64(s, 1, inode);
-				sqlite3_step(s);
+					sqlite3_bind_int64(s, 1, inode);
+					sqlite3_step(s);
 
-				st->st_nlink = sqlite3_column_int(s, 0);
+					st->st_nlink = sqlite3_column_int(s, 0);
+				}
 
 				errno = 0;
 			}
@@ -251,8 +366,10 @@ fs_getattr (path, st, file_info)
 			return -(errno);
 		}
 	}
-	else if (rcmp(path, "/@") == 0)
-	{
+	else if (
+			rcmp(path, "/@")    == 0 ||
+			rcmp(path, "/.for") == 0
+	){
 		q = "SELECT COUNT(*) FROM `select_inodes`;";
 
 		select_table = INODES;
