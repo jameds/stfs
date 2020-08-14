@@ -116,24 +116,7 @@ fs_getattr (path, st, file_info)
 
 		inclusive = ( t[1] != '~' );
 
-		errno = 0;/* underflow/overflow, though, really? =P */
-		inode = strtoll(p, &p, 10);
-
-		if (*p == '.')
-		{
-			page = strtol(&p[1], &p, 10);
-
-			if (page < 1)
-			{
-				return -EINVAL;
-			}
-		}
-		else
-		{
-			page = 0;
-		}
-
-		if (*p != '\0' || errno)
+		if (get_inode(&inode, &page, &p) != 0)
 		{
 			return -EINVAL;
 		}

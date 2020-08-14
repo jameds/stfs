@@ -63,24 +63,7 @@ fs_rename (from, to, mode)
 
 		if (( p = strstr3(to, "/@/", &t) ) != NULL)
 		{
-			errno = 0;/* underflow/overflow, though, really? =P */
-			master = strtoll(t, &t, 10);
-
-			if (*t == '.')
-			{
-				page = strtol(&t[1], &t, 10);
-
-				if (page < 1)
-				{
-					return -EINVAL;
-				}
-			}
-			else
-			{
-				page = 0;
-			}
-
-			if (*t != '\0' || errno)
+			if (get_inode(&master, &page, &t) != 0)
 			{
 				return -EINVAL;
 			}

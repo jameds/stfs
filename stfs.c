@@ -120,3 +120,34 @@ run_inheritance_statement (s, p, lhs, lhs_length, rhs)
 
 	return 0;
 }
+
+int
+get_inode (inode, page, p)
+	sqlite3_int64 * inode;
+	int           * page;
+	char         ** p;
+{
+	errno  = 0;/* underflow/overflow, though, really? =P */
+	*inode = strtoll(*p, p, 10);
+
+	if (**p == '.')
+	{
+		*page = strtol(&(*p)[1], p, 10);
+
+		if (*page < 1)
+		{
+			return 1;
+		}
+	}
+	else
+	{
+		*page = 0;
+	}
+
+	if (( **p != '\0' && **p != '/' ) || errno)
+	{
+		return 1;
+	}
+
+	return 0;
+}
