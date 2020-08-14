@@ -208,7 +208,7 @@ fs_readdir (path, fill_buffer, fill, offset, file_info, flags)
 	}
 	else if (select_table == INODES)
 	{
-		delete_select_tags_table();
+		delete_select_inodes_table();
 	}
 
 	return 0;
