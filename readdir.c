@@ -102,7 +102,7 @@ fs_readdir (path, fill_buffer, fill, offset, file_info, flags)
 				"SELECT `tag`  FROM `mappings` WHERE `inode`=? )"
 		);
 
-		sqlite3_bind_text(s, 1, p, strcspn(p, "/"), NULL);
+		sqlite3_bind_int64(s, 1, strtonode(&p));
 	}
 	else
 	{
