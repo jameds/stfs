@@ -34,6 +34,11 @@ fs_rename (from, to, mode)
 
 	int n;
 
+	if (strstr(from, "/.for/") != NULL)
+	{
+		return -EINVAL;
+	}
+
 	if (
 			( old_name = strstr2(from,  "/@/") ) != NULL ||
 			( old_name = strstr2(from, "/~@/") ) != NULL
@@ -137,6 +142,43 @@ fs_rename (from, to, mode)
 		);
 
 		return run_inheritance_statement(s, &t[-1], &p[-n], n, t);
+	}
+	else if (( p = strstr2(to, "/.for/") ))
+	{
+		if (get_inode(&master, &page, &p) == 0)
+		{
+			if (*p == '/' && strchr(&p[1], '/') == NULL)
+			{
+				inode = get_real_inode(master, page);
+
+				to = strrchr(to, '/') + 1;
+
+				s = db_prepare(
+						"INSERT OR IGNORE INTO `mappings` (`inode`,`tag`)"
+						"VALUES (?,( SELECT ROWID FROM `tags` WHERE `name`=? ))"
+				);
+
+				sqlite3_bind_int64  (s, 1, inode);
+				sqlite3_bind_string (s, 2, to);
+
+				if (db_finish(s) == SQLITE_DONE)
+				{
+					return 0;
+				}
+				else
+				{
+					return -ENOENT;
+				}
+			}
+			else
+			{
+				return -EINVAL;
+			}
+		}
+		else
+		{
+			return -EINVAL;
+		}
 	}
 	else
 	{
