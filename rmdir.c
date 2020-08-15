@@ -32,19 +32,51 @@ fs_rmdir (path)
 
 	sqlite3_stmt * s;
 	sqlite3_int64 tag;
+	sqlite3_int64 inode;
 
 	p = strrchr(path, '/');
 
 	if (tag_is_valid(&p[1]))
 	{
+		if (( lhs = strstr2(path, "/.for/") ))
+		{
+			if (lhs < p)
+			{
+				inode = strtonode(&lhs);
+
+				if (lhs == p)
+				{
+					s = db_prepare(
+							"DELETE FROM `mappings` WHERE `inode`=? AND `tag`=("
+							"SELECT ROWID FROM `tags` WHERE `name`=? )"
+					);
+
+					sqlite3_bind_int64  (s, 1, inode);
+					sqlite3_bind_string (s, 2, &p[1]);
+
+					if (db_finish(s) == SQLITE_DONE)
+					{
+						return 0;
+					}
+					else
+					{
+						return -ENOENT;
+					}
+				}
+			}
+			else
+			{
+				return -EINVAL;
+			}
+		}
+
 		if (p > path)
 		{
 			n = ( p - (char *)rmemchr(&p[-1], '/', path) );
 
 			if (
 					strncmp(&p[-n], "/.under", n) == 0 ||
-					strncmp(&p[-n], "/.above", n) == 0 ||
-					strncmp(&p[-n], "/.for",   n) == 0
+					strncmp(&p[-n], "/.above", n) == 0
 			){
 				s = db_prepare(
 						"DELETE FROM `inheritance`"
