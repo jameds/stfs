@@ -73,7 +73,6 @@ fs_getattr (path, st, file_info)
 	int n = -1;
 
 	sqlite3_int64 inode;
-	int           page;
 
 	int    rows;
 	time_t now;
@@ -131,7 +130,9 @@ fs_getattr (path, st, file_info)
 		inclusive    = ( t[1] != '~' );
 		for_mappings = ( t[1] == '.' );
 
-		if (get_inode(&inode, &page, &p) != 0)
+		inode = strtonode(&p);
+
+		if (inode == 0)
 		{
 			return -EINVAL;
 		}
@@ -165,74 +166,6 @@ fs_getattr (path, st, file_info)
 #define PREPARE_UNFILTERED \
 			PREPARE ("","","")
 
-			if (page > 0)
-			{
-#define PREPARE( b, in, a ) \
-				s = db_prepare(\
-						"SELECT " COLUMNS ", ROWID FROM"\
-						"`inodes` WHERE " in a "`master`=? AND `page`=?"\
-				)
-
-				if (select_table == INODES)
-				{
-					if (for_mappings)
-					{
-#define COLUMNS BASIC_COLUMNS_SQL
-						PREPARE_FILTER (,"IN `select_inodes`","AND");
-#undef  COLUMNS
-					}
-					else if (inclusive)
-					{
-#define COLUMNS SYMLINK_COLUMNS_SQL
-						PREPARE_FILTER (,"IN `select_inodes`","AND");
-					}
-					else
-					{
-						PREPARE_FILTER (,"NOT IN `select_inodes`","AND");
-#undef  COLUMNS
-					}
-				}
-				else
-				{
-					if (for_mappings)
-					{
-						if (*p)
-						{
-							s = db_prepare(
-									"SELECT `time` FROM `tags`"
-									"WHERE `name`=?3 AND ROWID IN ("
-									"SELECT `tag` FROM `mappings`"
-									"WHERE `inode`=( SELECT ROWID FROM `inodes`"
-									"WHERE `master`=?1 AND `page`=?2 )"
-									")"
-							);
-						}
-						else
-						{
-#define COLUMNS BASIC_COLUMNS_SQL
-							PREPARE_UNFILTERED;
-#undef  COLUMNS
-						}
-					}
-					else if (inclusive)
-					{
-#define COLUMNS SYMLINK_COLUMNS_SQL
-						PREPARE_UNFILTERED;
-					}
-					else
-					{
-						PREPARE_FILTER (,
-								"NOT IN ( SELECT DISTINCT"
-								"`inode` FROM `mappings` )","AND");
-#undef  COLUMNS
-					}
-				}
-
-				sqlite3_bind_int(s, 2, page);
-
-#undef PREPARE
-			}
-			else
 			{
 #define PREPARE( b, in, a ) \
 				s = db_prepare(\
@@ -314,11 +247,6 @@ fs_getattr (path, st, file_info)
 				}
 				else
 				{
-					if (page > 0)
-					{
-						inode = sqlite3_column_int64(s, 3);
-					}
-
 					st->st_ino   = inode;
 					st->st_mode  = S_IFLNK|0777;
 

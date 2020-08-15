@@ -34,7 +34,11 @@ void * rmemchr (const void *before, int c, const void *start);
 int    stropt  (const char *string, const char **list);
 
 int tag_is_valid (const char *tag);
-int get_inode    (sqlite3_int64 *inode, int *page, char **name);
+
+int           get_inode      (sqlite3_int64 *inode, int *page, char **name);
+sqlite3_int64 get_real_inode (sqlite3_int64  inode, int  page);
+
+sqlite3_int64 strtonode (char **name);
 
 /* database */
 void db_link (const char *path);

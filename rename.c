@@ -38,28 +38,9 @@ fs_rename (from, to, mode)
 			( old_name = strstr2(from,  "/@/") ) != NULL ||
 			( old_name = strstr2(from, "/~@/") ) != NULL
 	){
-		inode = strtoll(old_name, &p, 10);
+		p = old_name;
 
-		if (*p == '.')
-		{
-			s = db_prepare(
-					"SELECT ROWID FROM `inodes`"
-					"WHERE `master`=? AND `page`=?"
-			);
-
-			sqlite3_bind_int64  (s, 1, inode);
-			sqlite3_bind_string (s, 2, &p[1]);
-
-			if (sqlite3_step(s) == SQLITE_ROW)
-			{
-				inode = sqlite3_column_int64(s, 0);
-			}
-
-			if (sqlite3_finalize(s) != SQLITE_OK)
-			{
-				return -EIO;
-			}
-		}
+		inode = strtonode(&p);
 
 		if (( p = strstr3(to, "/@/", &t) ) != NULL)
 		{

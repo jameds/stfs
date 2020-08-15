@@ -151,3 +151,52 @@ get_inode (inode, page, p)
 
 	return 0;
 }
+
+sqlite3_int64
+get_real_inode (inode, page)
+	sqlite3_int64 inode;
+	int           page;
+{
+	sqlite3_stmt * s;
+
+	if (page > 0)
+	{
+		s = db_prepare(
+				"SELECT ROWID FROM `inodes`"
+				"WHERE `master`=? AND `page`=?"
+		);
+
+		sqlite3_bind_int64 (s, 1, inode);
+		sqlite3_bind_int   (s, 2, page);
+
+		if (sqlite3_step(s) == SQLITE_ROW)
+		{
+			inode = sqlite3_column_int64(s, 0);
+		}
+		else
+		{
+			inode = 0;
+		}
+
+		sqlite3_finalize(s);
+	}
+
+	return inode;
+}
+
+sqlite3_int64
+strtonode (p)
+	char ** p;
+{
+	sqlite3_int64 inode;
+	int           page;
+
+	if (get_inode(&inode, &page, p) == 0)
+	{
+		return get_real_inode(inode, page);
+	}
+	else
+	{
+		return 0;
+	}
+}
